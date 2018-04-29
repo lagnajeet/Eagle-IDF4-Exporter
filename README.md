@@ -5,7 +5,7 @@ Exports Eagle board files to IDF 4 format for ECAD to MCAD conversion. In simple
 ## Converts
 ![alt text](https://github.com/lagnajeet/Eagle-IDF4-Exporter/blob/master/ECAD.gif "Eagle CAD file")
 
-## into
+## Into
 ![alt text](https://github.com/lagnajeet/Eagle-IDF4-Exporter/blob/master/MCAD.png "Solidworks 3D render")
 
 IDF 4 specifications can be found at https://www.simplifiedsolutionsinc.com/images/idf_v40_spec.pdf.
