@@ -1175,12 +1175,20 @@ string RemoveIDFDebugLayerCommands() {
 //}
 string TraceSide(int side)
 {
-	if(side==1 || side==LAYER_TSTOP)
+	if(side==LAYER_TOP || side==LAYER_TSTOP)
 		return "Conductor_Top";
-	else if(side==16 || side==LAYER_BSTOP)
+	else if(side==LAYER_BOTTOM || side==LAYER_BSTOP)
 		return "Conductor_Bottom";
-	else
-		return "";
+	return "";
+}
+
+string SilkScreenSide(int side)
+{
+	if(side==LAYER_TPLACE || side==LAYER_TNAMES || side==LAYER_TDOCU || side==LAYER_TVALUES)
+		return "Silkscreen_Top";
+	if(side==LAYER_BPLACE || side==LAYER_BNAMES || side==LAYER_BDOCU || side==LAYER_BVALUES)
+		return "Silkscreen_Bottom";
+	return "";
 }
 string write_wire(UL_WIRE W, UL_SIGNAL S)
 {
@@ -1400,15 +1408,24 @@ string deblank(string in)
     ret[j]=0;	
     return ret; 
 }
-string rotateTranslatePad(string data, real angle,real tx, real ty)
+string rotateTranslatePad(string data, real angle,real tx, real ty,int xy_only)
 {
 	string ret="";
 	real deg2rad = 0.0174532925; //used to convert degress to radians for rotating
-	int startpos= strstr(data,"Vertices");
+	int startpos= 0;
+	if(xy_only==1)
+		startpos=strstr(data,"XY_Pts");
+	else
+		startpos=strstr(data,"Vertices");
 	string leftstring="";
 	angle=360-angle;
 	real cosine = cos(deg2rad*angle);
 	real sine = sin(deg2rad*angle);
+	string zeropad="";
+	if(xy_only==1)
+		zeropad="";
+	else
+		zeropad=",0";
 	if(startpos>=0)		//Found the vertices the proceed to rotation
 	{
 		leftstring=strsub(data,0,startpos+8);
@@ -1428,16 +1445,18 @@ string rotateTranslatePad(string data, real angle,real tx, real ty)
 				string xy[];
 				strsplit(xy,split[i],',');
 				if(i==pieces-1)
-					ret+="\t\t\t\t\t\t\t\t"+rtos((strtod(xy[0])+tx)*cosine+(strtod(xy[1])+ty)*sine)+","+rtos((strtod(xy[1])+ty)*cosine-(strtod(xy[0])+tx)*sine)+",0\n\t\t\t\t\t\t\t)";
+					ret+="\t\t\t\t\t\t\t\t"+rtos((strtod(xy[0])+tx)*cosine+(strtod(xy[1])+ty)*sine)+","+rtos((strtod(xy[1])+ty)*cosine-(strtod(xy[0])+tx)*sine)+zeropad+"\n\t\t\t\t\t\t\t)";
 				else
-					ret+="\t\t\t\t\t\t\t\t"+rtos((strtod(xy[0])+tx)*cosine+(strtod(xy[1])+ty)*sine)+","+rtos((strtod(xy[1])+ty)*cosine-(strtod(xy[0])+tx)*sine)+",0,\n";
+					ret+="\t\t\t\t\t\t\t\t"+rtos((strtod(xy[0])+tx)*cosine+(strtod(xy[1])+ty)*sine)+","+rtos((strtod(xy[1])+ty)*cosine-(strtod(xy[0])+tx)*sine)+zeropad+",\n";
 			}
 		}
-		return leftstring+"\n\t\t\t\t\t\t\t(\n"+ret+"\n\t\t\t\t\t\t)        /* End Polycurve/Circle */\n\t\t\t\t\t)               /* End Curve */\n\t\t\t\t);\n";
+		if(xy_only==1)
+			return leftstring+"\n\t\t\t\t\t\t\t(\n"+ret+"\n\t\t\t\t\t\t)        /* End Polyline */\n\t\t\t\t\t)               /* End Curve */\n\t\t\t\t);\n";
+		else
+			return leftstring+"\n\t\t\t\t\t\t\t(\n"+ret+"\n\t\t\t\t\t\t)        /* End Polyline */\n\t\t\t\t\t)               /* End Curve */\n\t\t\t\t);               /* End Trace */\n";
 	}
-	
 	else
-		return "data";
+		return data;
 }
 string writeSMDPad(int w, int h, int roundness)
 {
@@ -1541,7 +1560,7 @@ string GetPads()
 				{
 					temp="\t\t\tPad\n\t\t\t\t(\n\t\t\t\tEntity_ID (#"+GenerateID()+"),\n\t\t\t\tLayer (\""+side+"\")\n\t\t\t\tType (\"Pin\"),\n\t\t\t\tTestpoint (\"False\"),\n\t\t\t\tNet_Name (\""+netName+"\"),\n\t\t\t\tXY_Loc (" + rtos(GetDimInBoardUnits(C.smd.x)) + " , " + rtos(GetDimInBoardUnits(C.smd.y))+ "),\n\t\t\t\tRotation (0.00),\n\t\t\t\tGeometry\n\t\t\t\t\t(\n\t\t\t\t\tPolycurve_Area\n\t\t\t\t\t\t(\n\t\t\t\t\t\tEntity_ID (#"+GenerateID()+"),\n\t\t\t\t\t\tLine_Font (\"Solid\"),\n\t\t\t\t\t\tVertices\n\t\t\t\t\t\t\t(\n"+ writeSMDPad(C.smd.dx,C.smd.dy,C.smd.roundness) + "\n\t\t\t\t\t\t\t)\n\t\t\t\t\t\t)        /* End Polycurve */\n\t\t\t\t\t)               /* End Curve */\n\t\t\t\t);\n";
 					//padString += temp;
-					padString += rotateTranslatePad(temp,C.smd.angle,0,0) ;//+ "//actual angle for the above was " + rtos(C.smd.angle) + "\n";
+					padString += rotateTranslatePad(temp,C.smd.angle,0,0,0) ;//+ "//actual angle for the above was " + rtos(C.smd.angle) + "\n";
 				}
 				else 
 				if(C.pad)
@@ -1559,7 +1578,7 @@ string GetPads()
 						temp = "\t\t\tPad\n\t\t\t\t(\n\t\t\t\tEntity_ID (#"+GenerateID()+"),\n\t\t\t\tLayer (\""+sideMap[0]+"\")\n\t\t\t\tType (\"Pin\"),\n\t\t\t\tTestpoint (\"False\"),\n\t\t\t\tNet_Name (\""+netName+"\"),\n\t\t\t\tXY_Loc (" + rtos(GetDimInBoardUnits(C.pad.x)) + " , " + rtos(GetDimInBoardUnits(C.pad.y))+ "),\n\t\t\t\tRotation (0.00),\n\t\t\t\tGeometry\n\t\t\t\t\t("+ WriteThPads(diameter,C.pad.elongation,C.pad.shape[LAYER_PADS]) + "\n\t\t\t\t\t\t)        /* End Polycurve/Circle */\n\t\t\t\t\t)               /* End Curve */\n\t\t\t\t);\n";
 						effAngle = effectiveangle(C.pad.angle,C.pad.shape[LAYER_PADS]);
 						if(effAngle!=0)
-							padString += rotateTranslatePad(temp,effAngle,tx,ty);
+							padString += rotateTranslatePad(temp,effAngle,tx,ty,0);
 						else
 							padString += temp;
 					}
@@ -1572,7 +1591,7 @@ string GetPads()
 						temp = "\t\t\tPad\n\t\t\t\t(\n\t\t\t\tEntity_ID (#"+GenerateID()+"),\n\t\t\t\tLayer (\""+sideMap[1]+"\")\n\t\t\t\tType (\"Pin\"),\n\t\t\t\tTestpoint (\"False\"),\n\t\t\t\tNet_Name (\""+netName+"\"),\n\t\t\t\tXY_Loc (" + rtos(GetDimInBoardUnits(C.pad.x)) + " , " + rtos(GetDimInBoardUnits(C.pad.y))+ "),\n\t\t\t\tRotation (0.00),\n\t\t\t\tGeometry\n\t\t\t\t\t("+ WriteThPads(diameter,C.pad.elongation,C.pad.shape[LAYER_PADS]) + "\n\t\t\t\t\t\t)        /* End Polycurve/Circle */\n\t\t\t\t\t)               /* End Curve */\n\t\t\t\t);\n";
 						effAngle = effectiveangle(C.pad.angle,C.pad.shape[LAYER_PADS]);
 						if(effAngle!=0)
-							padString += rotateTranslatePad(temp,effAngle,tx,ty);
+							padString += rotateTranslatePad(temp,effAngle,tx,ty,0);
 						else
 							padString += temp;
 					}					
@@ -1588,7 +1607,7 @@ string GetPads()
 						temp = arcToLines(0,360,GetDimInBoardUnits(C.radius),GetDimInBoardUnits(C.x+C.radius),GetDimInBoardUnits(C.y),GetDimInBoardUnits(C.x),GetDimInBoardUnits(C.y),1,2,0);
 						//temp[strlen(temp)-2] = '\0';
 						padString+= temp;
-						padString+="\t\t\t\t\t\t\t)\n\t\t\t\t\t\t)        /* End Polyline */\n\t\t\t\t\t),               /* End Curve */\n\t\t\t\t);               /* End Trace */\n";
+						padString+="\t\t\t\t\t\t\t)\n\t\t\t\t\t\t)        /* End Polyline */\n\t\t\t\t\t)               /* End Curve */\n\t\t\t\t);               /* End Trace */\n";
 					}
 					else
 					{
@@ -1616,7 +1635,7 @@ string GetPads()
 					temp+="\n\t\t\t\t\t\t\t)\n\t\t\t\t\t\t)        /* rectangle */\n\t\t\t\t\t)               /* End Curve */\n\t\t\t\t);\n";	
 					effAngle = effectiveangle(R.angle,PAD_SHAPE_LONG);
 					if(effAngle!=0)
-						padString += rotateTranslatePad(temp,effAngle,0,0);
+						padString += rotateTranslatePad(temp,effAngle,0,0,0);
 					else
 						padString += temp;
 				}
@@ -1648,6 +1667,7 @@ string GetTraces()
 			{
 				//if(P.layer==16)
 				//{
+				//dlgMessageBox(itos(P.layer));
 				side=TraceSide(P.layer);
 				if(strlen(side)>1)
 				{
@@ -1751,7 +1771,7 @@ string GetTraces()
 					else		//straight lines
 					{
 						//dlgMessageBox("("+itos(currSideLength)+" == "+itos(prevSideLength)+") && ("+rtos(currWidth)+"=="+rtos(prevWidth)+") && ("+rtos(GetDimInBoardUnits(P.x1))+"=="+rtos(prevX2)+") && ("+rtos(GetDimInBoardUnits(P.y1))+"=="+rtos(prevY2)+")");
-						if((currSideLength == prevSideLength) && (currWidth==prevWidth) && (abs(GetDimInBoardUnits(P.x1)-prevX2)<0.025) && (abs(GetDimInBoardUnits(P.y1)-prevY2)<0.025))	//continuation of the same trace
+						if((currSideLength == prevSideLength) && (currWidth==prevWidth) && (GetDistBetweenPts(GetDimInBoardUnits(P.x1),prevX2,GetDimInBoardUnits(P.y1),prevY2)<0.025))	//continuation of the same trace
 						{
 							tracestring+= "\n\t\t\t\t\t\t\t"+rtos(GetDimInBoardUnits(P.x2))+", "+rtos(GetDimInBoardUnits(P.y2)) + ",";
 						}
@@ -1815,7 +1835,7 @@ int CountWireHoles() {
 
 real Tolerance = GetTolerance();
 
-string GetEmnBoardOutline() {
+string GetEmnBoardOutline(string top,string bottom) {
 
      /*
       Board outline logic
@@ -1846,7 +1866,7 @@ string GetEmnBoardOutline() {
      string logFilePath = filesetext(GetBoardPath(), ".log");
      string BoardThickness = GetBoardThickness();
 	 
-     string boardOutlineSection = "/*****************/\n/* Parts Section */\n/*****************/\n\nParts\n\t(\n\t\n\t/*************************/\n\t/* Board Part Definition */\n\t/*************************/\n\t\n\tBoard_Part\n\t\t(\n\t\tEntity_ID (#" + GenerateID() + "),\n\t\tPart_Name (\"untitled\"),\n\t\tUnits (\"Global\"),\n\t\tType (\"Unspecified\"),\n\t\t\n\t\tPhy_Layers (\n\t\t\tPhysical_Layer \n\t\t\t\t( \t\t/* Physical Layers */ \n\t\t\t\tEntity_ID (#" + GenerateID() + "), \n\t\t\t\tLayer_Name (\"Conductor_Bottom\"), \n\t\t\t\tType (\"Conductive\"),\n\t\t\t\tPosition (1),\n\t\t\t\tThickness (0.05) \t\n\t\t\t\t); /* End Physical Layer */ \n\t\t\t\t\n\t\t\t\tPhysical_Layer \n\t\t\t\t( \n\t\t\t\tEntity_ID (#" + GenerateID() + "), \n\t\t\t\tLayer_Name (\"Dielectric_Middle\"), \n\t\t\t\tType (\"Dielectric\"), \n\t\t\t\tPosition (2), \n\t\t\t\tThickness (" + rtos(strtod(BoardThickness) - 0.1) + ") \n\t\t\t\t); /* End Physical Layer */ \n\t\t\t\t\n\t\t\t\tPhysical_Layer\n\t\t\t\t( \n\t\t\t\tEntity_ID (#" + GenerateID() + "), \n\t\t\t\tLayer_Name (\"Conductor_Top\"), \n\t\t\t\tType (\"Conductive\"), \n\t\t\t\tPosition (3), \n\t\t\t\tThickness (0.05) \n\t\t\t\t); /* End Physical Layer */ \t\t\t\n\t\t),\n\t\t\tShape\n\t\t\t(\n\t\t\tExtrusion\n\t\t\t\t(\n\t\t\t\tEntity_ID (#" + GenerateID() + "),\n\t\t\t\tTop_Height (" + BoardThickness + "),\n\t\t\t\tBot_Height (0),\n\t\t\t\tOutline\n\t\t\t\t\t(\n\t\t\t\t\tPolycurve_Area\n\t\t\t\t\t\t(\n";
+     string boardOutlineSection = "/*****************/\n/* Parts Section */\n/*****************/\n\nParts\n\t(\n\t\n\t/*************************/\n\t/* Board Part Definition */\n\t/*************************/\n\t\n\tBoard_Part\n\t\t(\n\t\tEntity_ID (#" + GenerateID() + "),\n\t\tPart_Name (\"untitled\"),\n\t\tUnits (\"Global\"),\n\t\tType (\"Unspecified\"),\n\t\t\n\t\tPhy_Layers (\n\t\t\tPhysical_Layer \n\t\t\t\t( \t\t/* Physical Layers */ \n\t\t\t\tEntity_ID (#" + GenerateID() + "), \n\t\t\t\tLayer_Name (\""+bottom+"\"), \n\t\t\t\tType (\"Conductive\"),\n\t\t\t\tPosition (1),\n\t\t\t\tThickness (0.05) \t\n\t\t\t\t); /* End Physical Layer */ \n\t\t\t\t\n\t\t\t\tPhysical_Layer \n\t\t\t\t( \n\t\t\t\tEntity_ID (#" + GenerateID() + "), \n\t\t\t\tLayer_Name (\"Dielectric_Middle\"), \n\t\t\t\tType (\"Dielectric\"), \n\t\t\t\tPosition (2), \n\t\t\t\tThickness (" + rtos(strtod(BoardThickness) - 0.1) + ") \n\t\t\t\t); /* End Physical Layer */ \n\t\t\t\t\n\t\t\t\tPhysical_Layer\n\t\t\t\t( \n\t\t\t\tEntity_ID (#" + GenerateID() + "), \n\t\t\t\tLayer_Name (\""+top+"\"), \n\t\t\t\tType (\"Conductive\"), \n\t\t\t\tPosition (3), \n\t\t\t\tThickness (0.05) \n\t\t\t\t); /* End Physical Layer */ \t\t\t\n\t\t),\n\t\t\tShape\n\t\t\t(\n\t\t\tExtrusion\n\t\t\t\t(\n\t\t\t\tEntity_ID (#" + GenerateID() + "),\n\t\t\t\tTop_Height (" + BoardThickness + "),\n\t\t\t\tBot_Height (0),\n\t\t\t\tOutline\n\t\t\t\t\t(\n\t\t\t\t\tPolycurve_Area\n\t\t\t\t\t\t(\n";
      int wireCount = 0;
 
      string outlinePoints[]; //holds points extracted from board
@@ -2040,30 +2060,6 @@ string GetEmnBoardOutline() {
                boardOutlineSectionDebug += temp;
           }  //end for
      }  //end if for debug
-
-     /*
-      //calculate Tolerance based on 1/2 of smallest wire length
-      for( int i = 0; i < wireCount; i++ ){
-      bx1 = GetX1FromPtString( outlinePoints[ i ] );
-      by1 = GetY1FromPtString( outlinePoints[ i ] );
-      bx2 = GetX2FromPtString( outlinePoints[ i ] );
-      by2 = GetY2FromPtString( outlinePoints[ i ] );
-
-      dist = GetDistBetweenPts( bx1, by1, bx2, by2 );
-
-      if( minDist == -1.0 ){
-      minDist = dist;
-      }
-      else if( dist < minDist ){
-      minDist = dist;
-      }
-      else{
-      //do nothing if dist Is not smaller then minDist
-      }
-      }  //end for loop
-
-      Tolerance = minDist / 2;
-      */
 
      /*   Step 4 & 5 - Verify wires found   */
      //loop thru points and sort so they are in order
@@ -2443,7 +2439,7 @@ string GetEmnBoardOutline() {
      return boardOutlineSection;
 }  //end GetEmnBoardOutline
 
-string GetEmnDrilledHoles() {
+string GetEmnDrilledHoles(int enable_via_pads) {
 
      string drilledHolesSection = "";
      string temp;
@@ -2499,13 +2495,13 @@ string GetEmnDrilledHoles() {
           {
                S.vias(V)
                {
-					if(V.diameter[LAYER_TSTOP]>0.05)
+					if(V.diameter[LAYER_TSTOP]>0.05 && enable_via_pads!=0)
 					{
 						temp = "\t\t\tPad\n\t\t\t\t(\n\t\t\t\tEntity_ID (#"+GenerateID()+"),\n\t\t\t\tLayer (\""+sideMap[0]+"\")\n\t\t\t\tType (\"Pin\"),\n\t\t\t\tTestpoint (\"False\"),\n\t\t\t\tNet_Name (\"Via"+itos(vianumber)+"\"),\n\t\t\t\tXY_Loc (" + rtos(GetDimInBoardUnits(V.x)) + " , " + rtos(GetDimInBoardUnits(V.y))+ "),\n\t\t\t\tRotation (0.00),\n\t\t\t\tGeometry\n\t\t\t\t\t("+ WriteThPads(V.diameter[LAYER_TSTOP],0,V.shape[LAYER_TOP]) + "\n\t\t\t\t\t\t)        /* End Polycurve/Circle */\n\t\t\t\t\t)               /* End Curve */\n\t\t\t\t);\n";
 						drilledHolesSection += temp;
 						vianumber++;
 					}
-					if(V.diameter[LAYER_BSTOP]>0.05)
+					if(V.diameter[LAYER_BSTOP]>0.05 && enable_via_pads!=0)
 					{
 						temp = "\t\t\tPad\n\t\t\t\t(\n\t\t\t\tEntity_ID (#"+GenerateID()+"),\n\t\t\t\tLayer (\""+sideMap[1]+"\")\n\t\t\t\tType (\"Pin\"),\n\t\t\t\tTestpoint (\"False\"),\n\t\t\t\tNet_Name (\"Via"+itos(vianumber)+"\"),\n\t\t\t\tXY_Loc (" + rtos(GetDimInBoardUnits(V.x)) + " , " + rtos(GetDimInBoardUnits(V.y))+ "),\n\t\t\t\tRotation (0.00),\n\t\t\t\tGeometry\n\t\t\t\t\t("+ WriteThPads(V.diameter[LAYER_BSTOP],0,V.shape[LAYER_BOTTOM]) + "\n\t\t\t\t\t\t)        /* End Polycurve/Circle */\n\t\t\t\t\t)               /* End Curve */\n\t\t\t\t);\n";
 						drilledHolesSection += temp;		
@@ -2638,6 +2634,77 @@ string GetEmnPlacements() {
      return placementSection;
 }  //end sub
 
+string splitlasttwo(string data,int xy_only,string leftstring_new)
+{
+	string ret="";
+	string temp="";
+	string temp1="";
+	int startpos= 0;
+	if(xy_only==1)
+		startpos=strstr(data,"XY_Pts");
+	else
+		startpos=strstr(data,"Vertices");
+	string leftstring="";
+	string zeropad="";
+	if(xy_only==1)
+		zeropad="";
+	else
+		zeropad=",0";
+	if(startpos>=0)		//Found the vertices then proceed to rotation
+	{
+		leftstring=strsub(data,0,startpos+8);
+		string strtemp=strsub(data,startpos+8);
+		startpos = strstr(strtemp,")");
+		strtemp = strsub(strtemp,1,startpos-2);
+		startpos = strstr(strtemp,"(");
+		if(startpos>=0)
+			strtemp = strsub(strtemp,startpos+1);
+		string split[];
+		int pieces = strsplit(split,deblank(strtemp),'\n');
+		for(int i=0;i<pieces-1;i++)
+		{
+			split[i]=deblank(split[i]);
+			if(strlen(split[i])>2)
+			{
+				string xy[];
+				strsplit(xy,split[i],',');
+				if(i==pieces-2)
+					ret+="\t\t\t\t\t\t\t\t"+xy[0]+","+xy[1]+zeropad+"\n\t\t\t\t\t\t\t)";
+				else
+					ret+="\t\t\t\t\t\t\t\t"+xy[0]+","+xy[1]+zeropad+",\n";
+			}
+		}
+		if(xy_only==1)
+			temp+= leftstring+"\t\t\t\t\t\t\t(\n"+ret+"\n\t\t\t\t\t\t)        /* End Polyline */\n\t\t\t\t\t)               /* End Curve */\n\t\t\t\t);\n";
+		else
+			temp+= leftstring+"\t\t\t\t\t\t\t(\n"+ret+"\n\t\t\t\t\t\t)        /* End Polyline */\n\t\t\t\t\t)               /* End Curve */\n\t\t\t\t);               /* End Trace */\n";
+		
+		ret= "";
+		
+		for(i=pieces-2;i<pieces;i++)
+		{
+			split[i]=deblank(split[i]);
+			if(strlen(split[i])>2)
+			{
+				string xy[];
+				strsplit(xy,split[i],',');
+				if(i==pieces-1)
+					ret+="\t\t\t\t\t\t\t\t"+xy[0]+","+xy[1]+zeropad+"\n\t\t\t\t\t\t\t)";
+				else
+					ret+="\t\t\t\t\t\t\t\t"+xy[0]+","+xy[1]+zeropad+",\n";
+			}
+		}
+		if(xy_only==1)
+			temp1+= leftstring_new+"\n\t\t\t\t\t\t\t(\n"+ret+"\n\t\t\t\t\t\t)        /* End Polyline */\n\t\t\t\t\t)               /* End Curve */\n\t\t\t\t);\n";
+		else
+			temp1+= leftstring_new+"\n\t\t\t\t\t\t\t(\n"+ret+"\n\t\t\t\t\t\t)        /* End Polyline */\n\t\t\t\t\t)               /* End Curve */\n\t\t\t\t);               /* End Trace */\n";	
+		
+		return temp+temp1;
+	}
+	else
+		return "error";
+}
+
 string geStops()
 {
 	string ret="";
@@ -2683,7 +2750,7 @@ string geStops()
 				temp+="\n\t\t\t\t\t\t\t)\n\t\t\t\t\t\t)        /* rectangle */\n\t\t\t\t\t)               /* End Curve */\n\t\t\t\t);\n";	
 				effAngle = effectiveangle(R.angle,PAD_SHAPE_LONG);
 				if(effAngle!=0)
-					ret += rotateTranslatePad(temp,effAngle,0,0);
+					ret += rotateTranslatePad(temp,effAngle,0,0,0);
 				else
 					ret += temp;
 			}
@@ -2694,18 +2761,205 @@ string geStops()
 	return ret;
 }
 
-string GenerateIDF() {
+
+string getSilkTraces()
+{
+	string padString="";
+	string sideMap[] = { "Silkscreen_Top", "Silkscreen_Bottom" };
+	string temp="";
+	real effAngle = 0;
+	real diameter=0;
+	real prevWidth=1;
+	real currWidth=0;
+	real prevX2=0;
+	real prevY2=0;
+	int newsignal=0;
+	int prevlayer=-1;
+	int morethanone=0;
+	board(B) 
+	{
+		B.elements(E)
+		{
+			string side = sideMap[E.mirror];
+			newsignal=0;
+			UL_PACKAGE PAC = E.package;
+			PAC.wires(W)
+			{
+				if((W.layer==LAYER_TPLACE || W.layer==LAYER_TNAMES || W.layer==LAYER_TDOCU || W.layer==LAYER_BPLACE || W.layer==LAYER_BNAMES || W.layer==LAYER_BDOCU) && GetDimInBoardUnits(W.width)>0.0125)
+				{
+					currWidth=GetDimInBoardUnits(W.width);	
+					if (W.arc)		//it's an arc
+					{
+						if(newsignal==1)
+						{
+							newsignal=0;
+							temp[strlen(temp)-1]='\0';
+							temp+= "\n\t\t\t\t\t\t\t)\n\t\t\t\t\t\t)        /* End Polyline */\n\t\t\t\t\t)               /* End Curve */\n\t\t\t\t);\n";
+							if(morethanone==1)
+								temp=splitlasttwo(temp,1,"\t\t\tTrace\n\t\t\t\t(\n\t\t\t\tEntity_ID (#"+ GenerateID() +"),\n\t\t\t\tNet_Name (\"PAD"+ GenerateID() +"\"),\n\t\t\t\tLayer (\""+SilkScreenSide(prevlayer)+"\"),\n\t\t\t\tCurve\n\t\t\t\t\t(\n\t\t\t\t\tPolyline\n\t\t\t\t\t\t(\n\t\t\t\t\t\tEntity_ID (#"+ GenerateID() +"),\n\t\t\t\t\t\tStart_Style(\"Round\"),\n\t\t\t\t\t\tEnd_Style(\"Round\"),\n\t\t\t\t\t\tLine_Font (\"Solid\"),\n\t\t\t\t\t\tWidth ("+rtos(prevWidth)+"),\n\t\t\t\t\t\tXY_Pts");
+							padString+= temp;
+						}					
+						padString+="\t\t\tTrace\n\t\t\t\t(\n\t\t\t\tEntity_ID (#"+ GenerateID() +"),\n\t\t\t\tLayer (\""+SilkScreenSide(W.layer)+"\"),\n\t\t\t\tNet_Name (\"PAD"+ GenerateID() +"\"),\n\t\t\t\tCurve\n\t\t\t\t\t(\n\t\t\t\t\tPolyline\n\t\t\t\t\t\t(\n\t\t\t\t\t\tEntity_ID (#"+ GenerateID() +"),\n\t\t\t\t\t\tLine_Font (\"Solid\"),\n\t\t\t\t\t\tWidth ("+rtos(GetDimInBoardUnits(W.width))+"),\n\t\t\t\t\t\tXY_Pts\n\t\t\t\t\t\t\t(\n";
+						temp = arcToLines(W.arc.angle1,W.arc.angle2,GetDimInBoardUnits(W.arc.radius),GetDimInBoardUnits(W.arc.x1),GetDimInBoardUnits(W.arc.y1),GetDimInBoardUnits(W.arc.xc),GetDimInBoardUnits(W.arc.yc),1,0,0);
+						temp+= "\t\t\t\t\t\t\t\t"+rtos(GetDimInBoardUnits(W.arc.x2))+","+ rtos(GetDimInBoardUnits(W.arc.y2));
+						padString+= temp;
+						padString+="\n\t\t\t\t\t\t\t)\n\t\t\t\t\t\t)        /* End Polyline */\n\t\t\t\t\t)               /* End Curve */\n\t\t\t\t);               /* End Trace */\n";						
+					}
+					else
+					{
+						if((W.layer == prevlayer) && (currWidth==prevWidth) && GetDistBetweenPts(W.x1,prevX2,W.y1,prevY2) < 0.025)	//continuation of the same trace
+						{
+							temp+= "\n\t\t\t\t\t\t\t"+rtos(GetDimInBoardUnits(W.x2))+", "+rtos(GetDimInBoardUnits(W.y2)) + ",";
+							morethanone=1;
+						}
+						else
+						{
+							if(newsignal==0)
+							{
+								temp="\t\t\tTrace\n\t\t\t\t(\n\t\t\t\tEntity_ID (#"+ GenerateID() +"),\n\t\t\t\tNet_Name (\"PAD"+ GenerateID() +"\"),\n\t\t\t\tLayer (\""+SilkScreenSide(W.layer)+"\"),\n\t\t\t\tCurve\n\t\t\t\t\t(\n\t\t\t\t\tPolyline\n\t\t\t\t\t\t(\n\t\t\t\t\t\tEntity_ID (#"+ GenerateID() +"),\n\t\t\t\t\t\tStart_Style(\"Round\"),\n\t\t\t\t\t\tEnd_Style(\"Round\"),\n\t\t\t\t\t\tLine_Font (\"Solid\"),\n\t\t\t\t\t\tWidth ("+rtos(currWidth)+"),\n\t\t\t\t\t\tXY_Pts\n\t\t\t\t\t\t\t(\n\t\t\t\t\t\t\t"+rtos(GetDimInBoardUnits(W.x1))+", "+rtos(GetDimInBoardUnits(W.y1))+",\n\t\t\t\t\t\t\t"+rtos(GetDimInBoardUnits(W.x2))+", "+rtos(GetDimInBoardUnits(W.y2)) +",";
+								newsignal=1;
+								morethanone=0;
+							}
+							else
+							{
+								temp[strlen(temp)-1]='\0';
+								temp+="\n\t\t\t\t\t\t\t)\n\t\t\t\t\t\t)        /* End Polyline */\n\t\t\t\t\t)               /* End Curve */\n\t\t\t\t);\n";
+								if(morethanone==1)
+									temp=splitlasttwo(temp,1,"\t\t\tTrace\n\t\t\t\t(\n\t\t\t\tEntity_ID (#"+ GenerateID() +"),\n\t\t\t\tNet_Name (\"PAD"+ GenerateID() +"\"),\n\t\t\t\tLayer (\""+SilkScreenSide(W.layer)+"\"),\n\t\t\t\tCurve\n\t\t\t\t\t(\n\t\t\t\t\tPolyline\n\t\t\t\t\t\t(\n\t\t\t\t\t\tEntity_ID (#"+ GenerateID() +"),\n\t\t\t\t\t\tStart_Style(\"Round\"),\n\t\t\t\t\t\tEnd_Style(\"Round\"),\n\t\t\t\t\t\tLine_Font (\"Solid\"),\n\t\t\t\t\t\tWidth ("+rtos(prevWidth)+"),\n\t\t\t\t\t\tXY_Pts");
+								padString+= temp;
+								temp="\t\t\tTrace\n\t\t\t\t(\n\t\t\t\tEntity_ID (#"+ GenerateID() +"),\n\t\t\t\tNet_Name (\"PAD"+ GenerateID() +"\"),\n\t\t\t\tLayer (\""+SilkScreenSide(W.layer)+"\"),\n\t\t\t\tCurve\n\t\t\t\t\t(\n\t\t\t\t\tPolyline\n\t\t\t\t\t\t(\n\t\t\t\t\t\tEntity_ID (#"+ GenerateID() +"),\n\t\t\t\t\t\tStart_Style(\"Round\"),\n\t\t\t\t\t\tEnd_Style(\"Round\"),\n\t\t\t\t\t\tLine_Font (\"Solid\"),\n\t\t\t\t\t\tWidth ("+rtos(currWidth)+"),\n\t\t\t\t\t\tXY_Pts\n\t\t\t\t\t\t\t(\n\t\t\t\t\t\t\t"+rtos(GetDimInBoardUnits(W.x1))+", "+rtos(GetDimInBoardUnits(W.y1))+",\n\t\t\t\t\t\t\t"+rtos(GetDimInBoardUnits(W.x2))+", "+rtos(GetDimInBoardUnits(W.y2))+",";
+								morethanone=0;
+								//tracestring+= "\n\nEnd previous and start new " +rtos(GetDimInBoardUnits(P.x1))+", "+rtos(GetDimInBoardUnits(P.y1)) + ",\n\t\t\t\t\t\t\t"+rtos(GetDimInBoardUnits(P.x2))+", "+rtos(GetDimInBoardUnits(P.y2)) +"," ;					
+							}
+						}
+						prevlayer=W.layer;
+						prevWidth = currWidth;
+						prevX2 = (W.x2);
+						prevY2 = (W.y2);						
+					}
+					
+				}
+			}
+			if(newsignal==1)
+			{
+				newsignal=0;
+				temp[strlen(temp)-1]='\0';
+				temp+= "\n\t\t\t\t\t\t\t)\n\t\t\t\t\t\t)        /* End Polyline */\n\t\t\t\t\t)               /* End Curve */\n\t\t\t\t);\n";
+				if(morethanone==1)
+					temp=splitlasttwo(temp,1,"\t\t\tTrace\n\t\t\t\t(\n\t\t\t\tEntity_ID (#"+ GenerateID() +"),\n\t\t\t\tNet_Name (\"PAD"+ GenerateID() +"\"),\n\t\t\t\tLayer (\""+SilkScreenSide(prevlayer)+"\"),\n\t\t\t\tCurve\n\t\t\t\t\t(\n\t\t\t\t\tPolyline\n\t\t\t\t\t\t(\n\t\t\t\t\t\tEntity_ID (#"+ GenerateID() +"),\n\t\t\t\t\t\tStart_Style(\"Round\"),\n\t\t\t\t\t\tEnd_Style(\"Round\"),\n\t\t\t\t\t\tLine_Font (\"Solid\"),\n\t\t\t\t\t\tWidth ("+rtos(prevWidth)+"),\n\t\t\t\t\t\tXY_Pts");
+				padString+= temp;
+			}
+			PAC.texts(T)
+			{
+				T.wires(W)
+				{
+					if((W.layer==LAYER_TPLACE || W.layer==LAYER_TNAMES || W.layer==LAYER_TDOCU || W.layer==LAYER_BPLACE || W.layer==LAYER_BNAMES || W.layer==LAYER_BDOCU || W.layer==LAYER_TVALUES || W.layer==LAYER_BVALUES) && GetDimInBoardUnits(W.width)>0.0125)
+					{
+						currWidth=GetDimInBoardUnits(W.width);	
+						if (W.arc)		//it's an arc
+						{
+							if(newsignal==1)
+							{
+								newsignal=0;
+								padString[strlen(padString)-1]='\0';
+								padString+= "\n\t\t\t\t\t\t\t)\n\t\t\t\t\t\t)        /* End Polyline */\n\t\t\t\t\t)               /* End Curve */\n\t\t\t\t);\n";
+							}					
+							padString+="\t\t\tTrace\n\t\t\t\t(\n\t\t\t\tEntity_ID (#"+ GenerateID() +"),\n\t\t\t\tLayer (\""+SilkScreenSide(W.layer)+"\"),\n\t\t\t\tNet_Name (\"PAD"+ GenerateID() +"\"),\n\t\t\t\tCurve\n\t\t\t\t\t(\n\t\t\t\t\tPolyline\n\t\t\t\t\t\t(\n\t\t\t\t\t\tEntity_ID (#"+ GenerateID() +"),\n\t\t\t\t\t\tLine_Font (\"Solid\"),\n\t\t\t\t\t\tWidth ("+rtos(GetDimInBoardUnits(W.width))+"),\n\t\t\t\t\t\tXY_Pts\n\t\t\t\t\t\t\t(\n";
+							temp = arcToLines(W.arc.angle1,W.arc.angle2,GetDimInBoardUnits(W.arc.radius),GetDimInBoardUnits(W.arc.x1),GetDimInBoardUnits(W.arc.y1),GetDimInBoardUnits(W.arc.xc),GetDimInBoardUnits(W.arc.yc),1,0,0);
+							temp+= "\t\t\t\t\t\t\t\t"+rtos(GetDimInBoardUnits(W.arc.x2))+","+ rtos(GetDimInBoardUnits(W.arc.y2));
+							padString+= temp;
+							padString+="\n\t\t\t\t\t\t\t)\n\t\t\t\t\t\t)        /* End Polyline */\n\t\t\t\t\t)               /* End Curve */\n\t\t\t\t);               /* End Trace */\n";						
+						}
+						else
+						{
+							if((currWidth==prevWidth) && abs(W.x1-prevX2) < 0.025 && abs(W.y1-prevY2) < 0.025)	//continuation of the same trace
+							{
+								padString+= "\n\t\t\t\t\t\t\t"+rtos(GetDimInBoardUnits(W.x2))+", "+rtos(GetDimInBoardUnits(W.y2)) + ",";
+							}
+							else
+							{
+								if(newsignal==0)
+								{
+									padString+="\t\t\tTrace\n\t\t\t\t(\n\t\t\t\tEntity_ID (#"+ GenerateID() +"),\n\t\t\t\tNet_Name (\"PAD"+ GenerateID() +"\"),\n\t\t\t\tLayer (\""+SilkScreenSide(W.layer)+"\"),\n\t\t\t\tCurve\n\t\t\t\t\t(\n\t\t\t\t\tPolyline\n\t\t\t\t\t\t(\n\t\t\t\t\t\tEntity_ID (#"+ GenerateID() +"),\n\t\t\t\t\t\tStart_Style(\"Round\"),\n\t\t\t\t\t\tEnd_Style(\"Round\"),\n\t\t\t\t\t\tLine_Font (\"Solid\"),\n\t\t\t\t\t\tWidth ("+rtos(currWidth)+"),\n\t\t\t\t\t\tXY_Pts\n\t\t\t\t\t\t\t(\n\t\t\t\t\t\t\t"+rtos(GetDimInBoardUnits(W.x1))+", "+rtos(GetDimInBoardUnits(W.y1))+",\n\t\t\t\t\t\t\t"+rtos(GetDimInBoardUnits(W.x2))+", "+rtos(GetDimInBoardUnits(W.y2)) +",";
+									newsignal=1;
+								}
+								else
+								{
+									padString[strlen(padString)-1]='\0';
+									padString+="\n\t\t\t\t\t\t\t)\n\t\t\t\t\t\t)        /* End Polyline */\n\t\t\t\t\t)               /* End Curve */\n\t\t\t\t);\n";
+									padString+="\t\t\tTrace\n\t\t\t\t(\n\t\t\t\tEntity_ID (#"+ GenerateID() +"),\n\t\t\t\tNet_Name (\"PAD"+ GenerateID() +"\"),\n\t\t\t\tLayer (\""+SilkScreenSide(W.layer)+"\"),\n\t\t\t\tCurve\n\t\t\t\t\t(\n\t\t\t\t\tPolyline\n\t\t\t\t\t\t(\n\t\t\t\t\t\tEntity_ID (#"+ GenerateID() +"),\n\t\t\t\t\t\tStart_Style(\"Round\"),\n\t\t\t\t\t\tEnd_Style(\"Round\"),\n\t\t\t\t\t\tLine_Font (\"Solid\"),\n\t\t\t\t\t\tWidth ("+rtos(currWidth)+"),\n\t\t\t\t\t\tXY_Pts\n\t\t\t\t\t\t\t(\n\t\t\t\t\t\t\t"+rtos(GetDimInBoardUnits(W.x1))+", "+rtos(GetDimInBoardUnits(W.y1))+",\n\t\t\t\t\t\t\t"+rtos(GetDimInBoardUnits(W.x2))+", "+rtos(GetDimInBoardUnits(W.y2))+",";
+									//tracestring+= "\n\nEnd previous and start new " +rtos(GetDimInBoardUnits(P.x1))+", "+rtos(GetDimInBoardUnits(P.y1)) + ",\n\t\t\t\t\t\t\t"+rtos(GetDimInBoardUnits(P.x2))+", "+rtos(GetDimInBoardUnits(P.y2)) +"," ;					
+								}
+							}
+							
+							prevWidth = currWidth;
+							prevX2 = (W.x2);
+							prevY2 = (W.y2);						
+						}
+					}
+				}
+				if(newsignal==1)
+				{
+					newsignal=0;
+					padString[strlen(padString)-1]='\0';
+					padString+= "\n\t\t\t\t\t\t\t)\n\t\t\t\t\t\t)        /* End Polyline */\n\t\t\t\t\t)               /* End Curve */\n\t\t\t\t);\n";
+				}			
+			}
+			PAC.circles(C)
+			{	
+				if((C.layer==LAYER_TPLACE || C.layer==LAYER_TNAMES || C.layer==LAYER_TDOCU || C.layer==LAYER_BPLACE || C.layer==LAYER_BNAMES || C.layer==LAYER_BDOCU ) && GetDimInBoardUnits(C.width)>0.0125)
+				{
+					temp="\t\t\tTrace\n\t\t\t\t(\n\t\t\t\tEntity_ID (#"+ GenerateID() +"),\n\t\t\t\tLayer (\""+SilkScreenSide(C.layer)+"\"),\n\t\t\t\tNet_Name (\"PAD"+ GenerateID() +"\"),\n\t\t\t\tCurve\n\t\t\t\t\t(\n\t\t\t\t\tPolyline\n\t\t\t\t\t\t(\n\t\t\t\t\t\tEntity_ID (#"+ GenerateID() +"),\n\t\t\t\t\t\tLine_Font (\"Solid\"),\n\t\t\t\t\t\tWidth ("+rtos(GetDimInBoardUnits(C.width))+"),\n\t\t\t\t\t\tXY_Pts\n\t\t\t\t\t\t\t(\n";
+					temp += arcToLines(0,360,GetDimInBoardUnits(C.radius),GetDimInBoardUnits(C.x+C.radius),GetDimInBoardUnits(C.y),GetDimInBoardUnits(C.x),GetDimInBoardUnits(C.y),1,1,0);
+					temp+="\t\t\t\t\t\t\t)\n\t\t\t\t\t\t)        /* End Polyline */\n\t\t\t\t\t)               /* End Curve */\n\t\t\t\t);               /* End Trace */\n";
+						temp=splitlasttwo(temp,1,"\t\t\tTrace\n\t\t\t\t(\n\t\t\t\tEntity_ID (#"+ GenerateID() +"),\n\t\t\t\tNet_Name (\"PAD"+ GenerateID() +"\"),\n\t\t\t\tLayer (\""+SilkScreenSide(C.layer)+"\"),\n\t\t\t\tCurve\n\t\t\t\t\t(\n\t\t\t\t\tPolyline\n\t\t\t\t\t\t(\n\t\t\t\t\t\tEntity_ID (#"+ GenerateID() +"),\n\t\t\t\t\t\tStart_Style(\"Round\"),\n\t\t\t\t\t\tEnd_Style(\"Round\"),\n\t\t\t\t\t\tLine_Font (\"Solid\"),\n\t\t\t\t\t\tWidth ("+rtos(GetDimInBoardUnits(C.width))+"),\n\t\t\t\t\t\tXY_Pts");
+					padString+= temp;
+				}
+				
+			}
+			PAC.rectangles(R)
+			{
+				if(R.layer==LAYER_TPLACE || R.layer==LAYER_TNAMES || R.layer==LAYER_TDOCU || R.layer==LAYER_BPLACE || R.layer==LAYER_BNAMES || R.layer==LAYER_BDOCU)
+				{
+					real cx = (R.x1+R.x2)/2;
+					real cy = (R.y1+R.y2)/2;
+					real w = abs(R.x1-R.x2);
+					real h = abs(R.y1-R.y2);
+					temp="\t\t\tTrace\n\t\t\t\t(\n\t\t\t\tEntity_ID (#"+ GenerateID() +"),\n\t\t\t\tLayer (\""+SilkScreenSide(R.layer)+"\"),\n\t\t\t\tNet_Name (\"PAD"+ GenerateID() +"\"),\n\t\t\t\tCurve\n\t\t\t\t\t(\n\t\t\t\t\tPolyline\n\t\t\t\t\t\t(\n\t\t\t\t\t\tEntity_ID (#"+ GenerateID() +"),\n\t\t\t\t\t\tLine_Font (\"Solid\"),\n\t\t\t\t\t\tWidth ("+rtos(GetDimInBoardUnits(w))+"),\n\t\t\t\t\t\tXY_Pts\n\t\t\t\t\t\t\t(\n";
+					temp+="\t\t\t\t\t\t\t\t" + rtos(GetDimInBoardUnits(cx)) + "," + rtos(GetDimInBoardUnits(cy-(h/2)))+ ","+
+						  "\n\t\t\t\t\t\t\t\t" + rtos(GetDimInBoardUnits(cx)) + "," + rtos(GetDimInBoardUnits(cy+(h/2)));
+					temp+="\n\t\t\t\t\t\t\t)\n\t\t\t\t\t\t)        /* rectangle */\n\t\t\t\t\t)               /* End Curve */\n\t\t\t\t);\n";	
+					effAngle = effectiveangle(R.angle,PAD_SHAPE_LONG);
+					if(effAngle!=0)
+						padString += rotateTranslatePad(rotateTranslatePad(temp,effAngle,-GetDimInBoardUnits(cx),-GetDimInBoardUnits(cy),1),0,GetDimInBoardUnits(cx),GetDimInBoardUnits(cy),1);
+					else
+						padString += temp;
+				}
+				//else
+				//	ret+= "//----------------------------"+itos(R.layer)+"--------------------------------------//\n";
+			}			
+		}
+	}
+	return padString;
+}
+string GenerateIDF() 
+{
 
     //build emn file
 	string assembly = GetEmnPlacements();
 	string electricalComponents = GetEmpElectrical();
-    string emn = GetEmnHeader(Elec_Part_Insts,Elec_Part_Defs) + assembly + GetEmnBoardOutline() + GetTraces() +GetEmnDrilledHoles()+ GetPads()+ geStops() + endParts() + electricalComponents+"\t)";
-	//string emn = GetEmnHeader(Elec_Part_Insts,Elec_Part_Defs) +  GetEmnBoardOutline() + GetTraces() + GetEmnDrilledHoles()+ GetPads()+ geStops() + endParts() + "\t)";
+    string emn = GetEmnHeader(Elec_Part_Insts,Elec_Part_Defs) + assembly + GetEmnBoardOutline("Conductor_Top","Conductor_Bottom") + GetTraces() +GetEmnDrilledHoles(1)+ GetPads()+ geStops() + endParts() + electricalComponents+"\t)";
+	//string emn = GetEmnHeader(Elec_Part_Insts,Elec_Part_Defs) +  GetEmnBoardOutline("Conductor_Top","Conductor_Bottom") + GetTraces() + endParts() + "\t)";
 	//string emn = GetEmnHeader(Elec_Part_Insts,Elec_Part_Defs) +  GetEmnBoardOutline() + GetTraces() + geStops() +GetEmnDrilledHoles()+ GetPads()+ endParts() + "\t)";
 	//string emn =getTstops();
     return emn;
 }  //end sub
 
+string GenerateSilkscreenIDF()
+{
+	string idf = GetEmnHeader(0,0) +  GetEmnBoardOutline("Silkscreen_Top","Silkscreen_Bottom") + getSilkTraces()+GetEmnDrilledHoles(0) + endParts() +"\t)";
+	return idf;
+}
 
 //main function to generate IDF fils
 void GenerateIDFFiles() 
@@ -2730,15 +2984,20 @@ void GenerateIDFFiles()
 		 //write strings to files
 		 string dirName;
 		 dirName = dlgDirectory("Select a directory to write IDF files to:", boardDir);
-		 //show path to user
-		 //dlgMessageBox(
-		 //          "Writing IDF Files: " + dirName + GetFileSeperator()
-		 //                    + filesetext(boardName, ".emn"));
+		 updateStatus("Processing . . .","blue",1,0);
 		 output(dirName + GetFileSeperator() + filesetext(boardName, ".idf"), "wt")
 		 {
 			  printf(IDFData);
 		 }
-		 updateStatus("IDF 4 File written successfully.","green",1,0);
+		 if(silkscreen==1)
+		 {
+			IDFData = GenerateSilkscreenIDF();//GenerateIDF();
+			 output(dirName + GetFileSeperator() + getFileNameWithoutExtension(boardName)+ "_silkscreen.idf", "wt")
+			 {
+				printf(IDFData);
+			 }		 
+		 }
+		 updateStatus("IDF 4 File(s) written successfully.","green",1,0);
 	 }
     }  //end sub
 
@@ -2774,7 +3033,7 @@ void main() {
                //button group
                dlgGroup("IDF 4 Export Option") 
 			   {
-				   //dlgCheckBox("Export &Separate Silkscreen", silkscreen);
+				   dlgCheckBox("Export &Separate Silkscreen", silkscreen);
 				   dlgLabel("Board Thickness (in millimeters): ");
 				   dlgStringEdit( BoardThickness );
                }  //end group
