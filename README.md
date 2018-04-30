@@ -1,11 +1,13 @@
 # Eagle IDF4 Exporter
 
-Exports Eagle board files to IDF 4 format for ECAD to MCAD conversion. In simple terms it does the following
+*This program is highly experimental at this stage. Since it was build on top of the existing IDF 3 library it will export the board and component locations properly but any new features of modification to the xisting features are not extensively tested. Please keep that in mind if using this ULP.*
 
-## Converts
+This ULP exports Eagle board files to IDF 4 format for ECAD to MCAD conversion. In simple terms it does the following
+
+### Converts
 ![alt text](https://github.com/lagnajeet/Eagle-IDF4-Exporter/blob/master/ECAD.gif "Eagle CAD file")
 
-## Into
+### Into
 ![alt text](https://github.com/lagnajeet/Eagle-IDF4-Exporter/blob/master/MCAD.png "Solidworks 3D render")
 
 IDF 4 specifications can be found at https://www.simplifiedsolutionsinc.com/images/idf_v40_spec.pdf.
