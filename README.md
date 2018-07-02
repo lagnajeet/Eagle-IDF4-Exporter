@@ -1,5 +1,7 @@
 # Eagle IDF4 Exporter
 
+## I stopped working on this project as I can't find any MCAD program that has a very good implementation of IDF4 format. Therefore I have started a [new project](https://github.com/lagnajeet/ECADWorksAddin) that exports a JSON file from Eagle and a corresponding Solidworks plugin to generate the 3D Board and populate the components. 
+
 *This program is highly experimental at this stage. Since it was build on top of the existing IDF 3 library it will export the board and component locations properly but any new features of modification to the xisting features are not extensively tested. Please keep that in mind if using this ULP.*
 
 This ULP exports Eagle board files to IDF 4 format for ECAD to MCAD conversion. In simple terms it does the following
